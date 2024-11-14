@@ -4,6 +4,7 @@ using Il2Cpp;
 using infinite_magatama_skills;
 using Il2Cppresult2_H;
 using Il2Cppnewdata_H;
+using UnityEngine;
 
 [assembly: MelonInfo(typeof(InfiniteMagatamaSkills), "Infinite Magatama skills", "1.0.0", "Matthiew Purple")]
 [assembly: MelonGame("アトラス", "smt3hd")]
@@ -11,6 +12,35 @@ using Il2Cppnewdata_H;
 namespace infinite_magatama_skills;
 public class InfiniteMagatamaSkills : MelonMod
 {
+    public static bool[] heartMastered = new bool[26];
+
+    public override void OnLateUpdate()
+    {
+        if (cmpInitDH._DHeartsUIScr != null && cmpInitDH._DHeartsUIScr.gameObject.active)
+        {
+            for (int i = 1; i <= 24; i++)
+            {
+                string heartIndex = i.ToString();
+                if (heartIndex.Length == 1) heartIndex = "0" + heartIndex;
+
+                //GameObject magPedOff = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_off").gameObject;
+                GameObject magPedOn = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_on").gameObject;
+                GameObject magPedBlue = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_blue").gameObject;
+
+                if (heartMastered[i] && magPedOn.active && !magPedBlue.active)
+                {
+                    magPedOn.active = false;
+                    magPedBlue.active = true;
+                }
+                else if (!heartMastered[i] && !magPedOn.active && magPedBlue.active)
+                {
+                    magPedOn.active = true;
+                    magPedBlue.active = false;
+                }
+            }
+        }
+    }
+
     // Before displaying the skills
     [HarmonyPatch(typeof(cmpDrawStatus), nameof(cmpDrawStatus.cmpDrawSkill))]
     private class Patch
@@ -46,8 +76,8 @@ public class InfiniteMagatamaSkills : MelonMod
             int consumedSkillsLength = Utility.GetConsummedSkillsLength(HeartsID); // Get the progression of learned skills from this magatama
             int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(HeartsID); // Get the number of learnable skills from this magatama
 
-            if (consumedSkillsLength < MagatamaSkillsLength) __result = 0; // If not all learnable skills have been learned at least once, the magatama isn't mastered
-            else __result = 1;
+            if (consumedSkillsLength < MagatamaSkillsLength) heartMastered[HeartsID] = false; // If not all learnable skills have been learned at least once, the magatama isn't mastered
+            else heartMastered[HeartsID] = true;
         }
     }
 
