@@ -4,6 +4,7 @@ using Il2Cpp;
 using infinite_magatama_skills;
 using Il2Cppresult2_H;
 using Il2Cppnewdata_H;
+using UnityEngine;
 
 [assembly: MelonInfo(typeof(InfiniteMagatamaSkills), "Infinite Magatama skills", "1.0.0", "Matthiew Purple")]
 [assembly: MelonGame("アトラス", "smt3hd")]
@@ -11,6 +12,35 @@ using Il2Cppnewdata_H;
 namespace infinite_magatama_skills;
 public class InfiniteMagatamaSkills : MelonMod
 {
+    public static bool[] heartMastered = new bool[26];
+
+    public override void OnLateUpdate()
+    {
+        if (cmpInitDH._DHeartsUIScr != null && cmpInitDH._DHeartsUIScr.gameObject.active)
+        {
+            for (int i = 1; i <= 24; i++)
+            {
+                string heartIndex = i.ToString();
+                if (heartIndex.Length == 1) heartIndex = "0" + heartIndex;
+
+                //GameObject magPedOff = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_off").gameObject;
+                GameObject magPedOn = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_on").gameObject;
+                GameObject magPedBlue = cmpInitDH._DHeartsUIScr.gameObject.transform.Find("magatama/magatamaset" + heartIndex + "/magpedestal/magpedestal_blue").gameObject;
+
+                if (heartMastered[i] && magPedOn.active && !magPedBlue.active)
+                {
+                    magPedOn.active = false;
+                    magPedBlue.active = true;
+                }
+                else if (!heartMastered[i] && !magPedOn.active && magPedBlue.active)
+                {
+                    magPedOn.active = true;
+                    magPedBlue.active = false;
+                }
+            }
+        }
+    }
+
     // Before displaying the skills
     [HarmonyPatch(typeof(cmpDrawStatus), nameof(cmpDrawStatus.cmpDrawSkill))]
     private class Patch
@@ -46,8 +76,62 @@ public class InfiniteMagatamaSkills : MelonMod
             int consumedSkillsLength = Utility.GetConsummedSkillsLength(HeartsID); // Get the progression of learned skills from this magatama
             int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(HeartsID); // Get the number of learnable skills from this magatama
 
-            if (consumedSkillsLength < MagatamaSkillsLength) __result = 0; // If not all learnable skills have been learned at least once, the magatama isn't mastered
-            else __result = 1;
+            if (consumedSkillsLength < MagatamaSkillsLength) heartMastered[HeartsID] = false; // If not all learnable skills have been learned at least once, the magatama isn't mastered
+            else heartMastered[HeartsID] = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(rstCalcCore), nameof(rstCalcCore.cmbGetMasterHeartsNums))]
+    private class Patch3
+    {
+        public static void Postfix(ref sbyte __result)
+        {
+            sbyte mastered = 0;
+
+            for (int i = 1; i <= 25; i++)
+            {
+                int consumedSkillsLength = Utility.GetConsummedSkillsLength(i); // Get the progression of learned skills from this magatama
+                int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(i); // Get the number of learnable skills from this magatama
+                if (consumedSkillsLength == MagatamaSkillsLength) mastered++;
+            }
+
+            __result = mastered;
+        }
+    }
+
+    [HarmonyPatch(typeof(rstCalcCore), nameof(rstCalcCore.cmbChkMasterHeartsStatNums))]
+    private class Patch4
+    {
+        public static void Postfix(ref byte pNums, ref byte __result)
+        {
+            byte neutralMastered = 0;
+            byte lightMastered = 0;
+            byte darkMastered = 0;
+
+            foreach (var neutralMagatama in new byte[] { 2, 6, 7, 12, 14, 16, 20, 24 })
+            {
+                int consumedSkillsLength = Utility.GetConsummedSkillsLength(neutralMagatama); // Get the progression of learned skills from this magatama
+                int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(neutralMagatama); // Get the number of learnable skills from this magatama
+                if (consumedSkillsLength == MagatamaSkillsLength) neutralMastered++;
+            }
+            foreach (var lightMagatama in new byte[] { 3, 4, 8, 11, 13, 17, 19, 22 })
+            {
+                int consumedSkillsLength = Utility.GetConsummedSkillsLength(lightMagatama); // Get the progression of learned skills from this magatama
+                int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(lightMagatama); // Get the number of learnable skills from this magatama
+                if (consumedSkillsLength == MagatamaSkillsLength) lightMastered++;
+            }
+            foreach (var darkMagatama in new byte[] { 1, 5, 9, 10, 15, 18, 21, 23 })
+            {
+                int consumedSkillsLength = Utility.GetConsummedSkillsLength(darkMagatama); // Get the progression of learned skills from this magatama
+                int MagatamaSkillsLength = Utility.GetMagatamaSkillsLength(darkMagatama); // Get the number of learnable skills from this magatama
+                if (consumedSkillsLength == MagatamaSkillsLength) darkMastered++;
+            }
+
+            if (rstCalcCore.cmbGetMasterHeartsNums() == 0) __result = 0; // Neutral
+            else if (neutralMastered > (lightMastered + darkMastered)) __result = 0; // Neutral
+            else if (lightMastered == darkMastered) __result = 0; // Neutral
+            else if (lightMastered > darkMastered) __result = 1; // Light
+            else if (lightMastered < darkMastered) __result = 4; // Dark
         }
     }
 
